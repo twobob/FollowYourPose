@@ -233,7 +233,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if (args.skeleton_path is None):
-        args.skeleton_path=r"D:\repo\FollowYourPose\pose_example\vis_ikun_pose2.MOV"
+        #args.skeleton_path=r"pose_example\vis_ikun_pose2.MOV"
+        args.skeleton_path=r"data\example_video\dancing_example_5.mp4"
     if (args.config is None):
         args.config=r"configs/pose_sample.yaml" 
 
