@@ -162,24 +162,79 @@ def main(
 
         from datetime import datetime
    
-        now = str(datetime.now())
+        #now = str(datetime.now())
+        # Your existing code modified for safe paths
+        now = sanitize_datetime(str(datetime.now()))
         # print(now)
         for idx, prompt in enumerate(validation_data.prompts):
-            sample = validation_pipeline(prompt, generator=generator, latents=ddim_inv_latent,
-                                        skeleton_path=skeleton_path,
-                                        **validation_data).videos
-            save_videos_grid(sample, f"{output_dir}/inference/sample-{global_step}-{str(seed)}-{now}/{prompt}.gif")
+            # Create safe prompt filename
+            safe_prompt = sanitize_datetime(prompt)[:100]  # Limit length to avoid too long paths
+            
+            # Create sample directory path
+            sample_dir = create_safe_path(
+                output_dir,
+                "inference",
+                f"sample-{global_step}-{str(seed)}-{now}"
+            )
+            
+            # Create individual sample path
+            sample_path = create_safe_path(
+                sample_dir,
+                f"{safe_prompt}.gif"
+            )
+            
+            # Generate and save sample
+            sample = validation_pipeline(
+                prompt,
+                generator=generator,
+                latents=ddim_inv_latent,
+                skeleton_path=skeleton_path,
+                **validation_data
+            ).videos
+            
+            save_videos_grid(sample, sample_path)
             samples.append(sample)
+
+        # Concatenate samples and save final grid
         samples = torch.concat(samples)
-        save_path = f"{output_dir}/inference/sample-{global_step}-{str(seed)}-{now}.gif"
-        save_videos_grid(samples, save_path)
-        logger.info(f"Saved samples to {save_path}")
+        final_save_path = create_safe_path(
+            output_dir,
+            "inference",
+            f"sample-{global_step}-{str(seed)}-{now}.gif"
+        )
+
+        save_videos_grid(samples, final_save_path)
+        logger.info(f"Saved samples to {final_save_path}")
+
+from pathlib import Path
+def create_safe_path(*parts):
+    """
+    Create a safe path by joining parts and ensuring the directory exists.
+    """
+    path = Path(*parts)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
+import re
+def sanitize_datetime(dt_string):
+    """
+    Convert datetime string to a Windows-safe format.
+    Removes colons and other unsafe characters.
+    """
+    # Replace colons with underscores and remove any other unsafe characters
+    safe_string = re.sub(r'[<>:"/\\|?*]', '_', dt_string)
+    return safe_string
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str)
     parser.add_argument("--skeleton_path", type=str)
     args = parser.parse_args()
+
+    if (args.skeleton_path is None):
+        args.skeleton_path=r"D:\repo\FollowYourPose\pose_example\vis_ikun_pose2.MOV"
+    if (args.config is None):
+        args.config=r"configs/pose_sample.yaml" 
+
     main(**OmegaConf.load(args.config), skeleton_path = args.skeleton_path)
